@@ -936,6 +936,26 @@ footer{background:var(--forest)}
 <p id="addressError" style="color:var(--primary);font-size:12.5px;margin-top:10px;display:none"></p>
 
       <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border)">
+        <div style="font-size:12.5px;font-weight:700;letter-spacing:.03em;color:var(--text-2);text-transform:uppercase;margin-bottom:2px">Order Summary</div>
+        <div style="margin-top:16px">
+          <label for="modalCouponInput" style="display:block;font-size:12.5px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px">Coupon Code</label>
+          <div id="modalCouponRow" style="display:flex;gap:8px">
+            <input type="text" id="modalCouponInput" placeholder="Enter coupon code" style="flex:1;border:1px solid var(--border);border-radius:8px;padding:11px 12px;font-size:14px;font-family:inherit;text-transform:uppercase;box-sizing:border-box">
+            <button type="button" onclick="applyModalCoupon()" style="border:1px solid var(--navy);background:#fff;color:var(--navy);border-radius:8px;padding:0 18px;font-size:12.5px;font-weight:700;cursor:pointer">Apply</button>
+          </div>
+          <p id="modalCouponMsg" style="font-size:12px;margin-top:6px;min-height:16px"></p>
+        </div>
+        <div style="margin-top:6px;padding:12px 14px;background:#fff;border:1px solid var(--border);border-radius:10px;font-size:13px">
+          <div style="display:flex;justify-content:space-between;color:var(--text-2)"><span>Subtotal</span><span id="addressSubtotal">₹0</span></div>
+          <div id="addressDiscountRow" style="display:none;justify-content:space-between;color:var(--success);font-weight:600;margin-top:6px"><span id="addressDiscountLabel"></span><span id="addressDiscountAmt"></span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
+            <span style="color:var(--text-2);font-size:13.5px">Amount to Pay</span>
+            <span id="addressOrderTotal" style="font-weight:700;font-size:21px;color:var(--navy)">₹0</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border)">
         <div style="font-size:12.5px;font-weight:700;letter-spacing:.03em;color:var(--text-2);text-transform:uppercase;margin-bottom:10px">Payment Method</div>
         <div style="border:1.5px solid var(--primary);background:rgba(228,33,40,.04);border-radius:12px;padding:16px;text-align:center">
           <div style="font-weight:700;font-size:15px;color:#5F259F;margin-bottom:2px">💜 PhonePe</div>
@@ -956,16 +976,13 @@ footer{background:var(--forest)}
             <ol style="margin:0 0 0 18px;padding:0;font-size:11.5px;color:var(--text-2);line-height:1.8">
               <li>Open PhonePe or any UPI app.</li>
               <li>Scan the QR code above.</li>
-              <li>Pay the exact order amount shown below.</li>
+              <li>Pay the exact Amount to Pay shown in the Order Summary above.</li>
               <li>After completing payment, return to this website.</li>
               <li>Click "I've Paid — Place Order" below.</li>
             </ol>
           </div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:13.5px">
-          <span style="color:var(--text-2)">Amount to Pay</span>
-          <span id="addressOrderTotal" style="font-weight:700;font-size:19px;color:var(--navy)">₹0</span>
-        </div>
+        
 
         <div style="margin-top:16px">
           <label for="utrInput" style="display:block;font-size:12.5px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px">UPI Transaction / UTR Number</label>
@@ -1003,7 +1020,9 @@ footer{background:var(--forest)}
         <div style="display:flex;justify-content:space-between"><span style="color:var(--text-2)">UTR / Reference No.</span><span style="font-weight:600" id="ocUtr"></span></div>
       </div>
 
-      <button class="btn-primary" style="width:100%;border:none;border-radius:10px;padding:12px;font-weight:600;cursor:pointer;color:#fff;background:var(--primary);margin-top:20px" onclick="closeOrderConfirmed()">Continue Shopping</button>
+      <a id="ocWhatsapp" href="#" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;border-radius:10px;padding:12px;font-weight:700;font-size:14px;color:#fff;background:#25D366;margin-top:20px">Send payment details on WhatsApp</a>
+      <p style="font-size:11.5px;color:var(--text-2);margin-top:8px">Tap the button, then press Send in WhatsApp so our team can verify your payment faster.</p>
+      <button class="btn-primary" style="width:100%;border:none;border-radius:10px;padding:12px;font-weight:600;cursor:pointer;color:#fff;background:var(--primary);margin-top:12px" onclick="closeOrderConfirmed()">Continue Shopping</button>
     </div>
   </div>
 </div>
@@ -1745,6 +1764,68 @@ footer{background:var(--forest)}
     return Math.max(0, subtotal - discount);
   }
 
+  function computeTotals(items, coupon) {
+    const rows = items.map(({ id, qty }) => {
+      const p = PRODUCTS.find(x => x.id === id);
+      return p ? { id, price: Number(p.sellingPrice) || 0, qty } : null;
+    }).filter(Boolean);
+    const subtotal = rows.reduce((n, r) => n + r.price * r.qty, 0);
+    let discount = 0;
+    if (coupon) {
+      const eligible = rows.reduce((n, r) => isProductEligibleForCoupon(r.id, coupon) ? n + r.price * r.qty : n, 0);
+      discount = Math.round(eligible * coupon.discountPercentage / 100);
+    }
+    return { subtotal, discount, total: Math.max(0, subtotal - discount) };
+  }
+
+  function renderModalTotals() {
+    if (!pendingOrder) return;
+    const t = computeTotals(pendingOrder.items, pendingOrder.coupon);
+    const c = pendingOrder.coupon;
+    document.getElementById('addressSubtotal').textContent = `₹${t.subtotal}`;
+    document.getElementById('addressOrderTotal').textContent = `₹${t.total}`;
+    const row = document.getElementById('addressDiscountRow');
+    row.style.display = c && t.discount > 0 ? 'flex' : 'none';
+    if (c) {
+      document.getElementById('addressDiscountLabel').textContent = `Coupon ${c.code} (${c.discountPercentage}% off)`;
+      document.getElementById('addressDiscountAmt').textContent = `−₹${t.discount}`;
+    }
+    const rowEl = document.getElementById('modalCouponRow');
+    const msg = document.getElementById('modalCouponMsg');
+    if (c) {
+      rowEl.style.display = 'none';
+      msg.style.color = 'var(--success)';
+      msg.innerHTML = `✓ Coupon ${escapeHtml(c.code)} applied — you save ₹${t.discount}. <a href="#" onclick="event.preventDefault(); removeModalCoupon()" style="color:var(--primary);text-decoration:underline">Remove</a>`;
+    } else {
+      rowEl.style.display = 'flex';
+    }
+  }
+
+  window.applyModalCoupon = function applyModalCoupon() {
+    if (!pendingOrder) return;
+    const msg = document.getElementById('modalCouponMsg');
+    const code = (document.getElementById('modalCouponInput').value || '').trim().toUpperCase();
+    msg.style.color = 'var(--primary)';
+    if (!code) { msg.textContent = 'Please enter a coupon code.'; return; }
+    const coupon = COUPONS.find(c => c.code === code);
+    if (!coupon) { msg.textContent = '❌ Invalid or inactive coupon code.'; return; }
+    if (!pendingOrder.items.some(i => isProductEligibleForCoupon(i.id, coupon))) {
+      msg.textContent = '❌ This coupon is not valid for the product(s) in this order.';
+      return;
+    }
+    pendingOrder.coupon = coupon;
+    renderModalTotals();
+    showToast(`Coupon ${code} applied`);
+  };
+
+  window.removeModalCoupon = function removeModalCoupon() {
+    if (!pendingOrder) return;
+    pendingOrder.coupon = null;
+    document.getElementById('modalCouponInput').value = '';
+    document.getElementById('modalCouponMsg').textContent = '';
+    renderModalTotals();
+  };
+
   window.openAddressModal = async function openAddressModal() {
     ['adName','adHouse','adStreet','adLandmark','adCity','adPin','adState','adPhone','adAltPhone','utrInput']
       .forEach(id => { document.getElementById(id).value = ''; });
@@ -1760,8 +1841,9 @@ footer{background:var(--forest)}
       if (p.mobile) document.getElementById('adPhone').value = p.mobile;
     } catch (e) { /* prefill is optional */ }
 
-    const total = pendingOrder ? estimateDisplayTotal(pendingOrder.items, pendingOrder.coupon) : 0;
-    document.getElementById('addressOrderTotal').textContent = `₹${total}`;
+    document.getElementById('modalCouponInput').value = '';
+    document.getElementById('modalCouponMsg').textContent = '';
+    renderModalTotals();
     document.getElementById('confirmAddressBtn').textContent = `I've Paid — Place Order`;
     document.getElementById('addressOverlay').classList.add('open');
   };
@@ -1921,6 +2003,16 @@ footer{background:var(--forest)}
     document.getElementById('ocOrderDate').textContent = formatDDMMYYYY(new Date());
     document.getElementById('ocTotal').textContent = `₹${num(order.total)}`;
     document.getElementById('ocUtr').textContent = order.utr || '—';
+    const waLines = [
+      `Hello Taneera's, I have paid for my order.`,
+      `Order ID: ${order.orderNumber}`,
+      `Amount: ₹${order.total}` + (order.couponCode ? ` (coupon ${order.couponCode})` : ''),
+      `UTR: ${order.utr}`,
+      `Items: ` + (order.items || []).map(i => `${i.name} x${i.qty}`).join(', '),
+      `Name: ${order.receiverName || order.customerName || ''}`,
+      `Mobile: ${order.customerPhone || ''}`,
+    ];
+    document.getElementById('ocWhatsapp').href = 'https://wa.me/919538162560?text=' + encodeURIComponent(waLines.join('\n'));
     document.getElementById('ocProductsList').innerHTML = (order.items || []).map(i => `
       <div style="display:flex;align-items:center;gap:10px">
         <img src="${i.imageUrl || `https://placehold.co/60x60?text=${encodeURIComponent(i.name)}`}" alt="${escapeHtml(i.name)}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0">
@@ -1965,30 +2057,46 @@ footer{background:var(--forest)}
       return;
     }
 
+    const couponNote = orderData.couponCode ? `\nCoupon ${orderData.couponCode}: -₹${orderData.discount}` : '';
+    const base = {
+      orderId: orderData.orderNumber,
+      orderDate: formatDDMMYYYY(new Date()),
+      products: formatProductsForEmail(orderData.items) + couponNote,
+      total: `₹${orderData.total}`,
+      utr: orderData.utr || '',
+      paymentMethod: 'UPI / PhonePe',
+      paymentStatus: 'Pending Verification',
+    };
+
+    // 1) Customer's confirmation
     try {
-      await emailjs.send(
-        SERVICE_ID,
-        TEMPLATE_ID,
-        {
-          email: orderData.customerEmail,
-          name: orderData.customerName || orderData.customerEmail,
-          title: 'Order Confirmation',
-          orderId: orderData.orderNumber,
-          orderDate: formatDDMMYYYY(new Date()),
-          products: formatProductsForEmail(orderData.items),
-          total: `₹${orderData.total}`,
-          address: orderData.address || '',
-          utr: orderData.utr || '',
-          paymentMethod: 'UPI / PhonePe',
-          paymentStatus: 'Pending Verification',
-        },
-        PUBLIC_KEY
-      );
+      await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+        ...base,
+        email: orderData.customerEmail,
+        name: orderData.customerName || orderData.customerEmail,
+        title: 'Order Confirmation',
+        address: orderData.address || '',
+      }, PUBLIC_KEY);
     } catch (err) {
-      // The order itself already succeeded (see startPayment above) — a
-      // failed email must never cancel or roll it back. Surface it quietly.
+      // The order itself already succeeded — a failed email must never roll it back.
       console.error('Order confirmation email failed to send:', err);
       showToast('Order placed successfully. Confirmation email could not be sent.');
+    }
+
+    // 2) Admin alert — same template, addressed to the shop owner, with contact details
+    try {
+      const contact = `${orderData.address || ''}\nMobile: ${orderData.customerPhone || '—'}` +
+        (orderData.altPhone ? `\nAlt mobile: ${orderData.altPhone}` : '') +
+        `\nCustomer email: ${orderData.customerEmail}`;
+      await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+        ...base,
+        email: ADMIN_EMAIL,
+        name: "Taneera's Admin",
+        title: 'NEW ORDER — verify payment in PhonePe (UTR ' + (orderData.utr || '—') + ')',
+        address: contact,
+      }, PUBLIC_KEY);
+    } catch (err) {
+      console.error('Admin order alert email failed to send:', err);
     }
   }
 
@@ -2004,9 +2112,12 @@ footer{background:var(--forest)}
     listEl.innerHTML = `<p style="color:var(--text-2);font-size:13.5px">Loading your orders…</p>`;
     document.getElementById('ordersOverlay').classList.add('open');
     try {
-      const q = query(collection(db, 'orders'), where('customerId', '==', currentUser.uid), orderBy('createdAt', 'desc'));
+      // No orderBy here: combining where() + orderBy() needs a Firestore composite index.
+      // We sort newest-first in the browser instead, so My Orders works without one.
+      const q = query(collection(db, 'orders'), where('customerId', '==', currentUser.uid));
       const snap = await getDocs(q);
-      const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => ((toDate(b.createdAt) || 0) - (toDate(a.createdAt) || 0)));
       MY_ORDERS = orders;
       if (!orders.length) {
         listEl.innerHTML = `<p style="color:var(--text-2);font-size:13.5px">You haven't placed any orders yet.</p>`;
